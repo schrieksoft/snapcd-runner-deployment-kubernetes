@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: snapcd-runner
+  labels:
+    app: snapcd-runner
+spec:
+  serviceName: snapcd-runner
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snapcd-runner
+  template:
+    metadata:
+      labels:
+        app: snapcd-runner
+    spec:
+      initContainers:
+        - name: download-engines
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              TOFU_VERSION="${TOFU_VERSION:-1.8.8}"
+              TERRAFORM_VERSION="${TERRAFORM_VERSION:-1.5.7}"
+
+              echo "Downloading OpenTofu ${TOFU_VERSION}..."
+              wget -q "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" -O /tmp/tofu.zip
+              unzip -q /tmp/tofu.zip -d /engines
+              rm /tmp/tofu.zip
+              chmod +x /engines/tofu
+
+              echo "Downloading Terraform ${TERRAFORM_VERSION}..."
+              wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -O /tmp/terraform.zip
+              unzip -q /tmp/terraform.zip -d /engines
+              rm /tmp/terraform.zip
+              chmod +x /engines/terraform
+
+              echo "Engines downloaded successfully:"
+              ls -la /engines/
+          env:
+            - name: TOFU_VERSION
+              value: "1.8.8"
+            - name: TERRAFORM_VERSION
+              value: "1.5.7"
+          volumeMounts:
+            - name: engines
+              mountPath: /engines
+      containers:
+        - name: snapcd-runner
+          image: ghcr.io/schrieksoft/snapcd-runner:azure-0.1.4
+          command: ["./SnapCd.Runner", "--urls", "http://0.0.0.0:5001"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: Runner__Instance
+              value: "$(POD_NAME)"
+            - name: Runner__Credentials__ClientSecret
+              valueFrom:
+                secretKeyRef:
+                  name: snapcd-runner-credentials
+                  key: Runner__Credentials__ClientSecret
+          ports:
+            - containerPort: 5001
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /app/appsettings.json
+              subPath: appsettings.json
+            - name: runner-data
+              mountPath: /app/runnerdata
+            - name: ssh-known-hosts
+              mountPath: /root/.ssh/known_hosts
+              subPath: known_hosts
+            - name: ssh-key
+              mountPath: /root/.ssh/id_rsa
+              subPath: id_rsa
+            - name: preapproved-hooks
+              mountPath: /app/preapproved-hooks
+            - name: engines
+              mountPath: /usr/local/bin/tofu
+              subPath: tofu
+            - name: engines
+              mountPath: /usr/local/bin/terraform
+              subPath: terraform
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: config
+          configMap:
+            name: snapcd-runner-config
+        - name: ssh-known-hosts
+          configMap:
+            name: snapcd-runner-ssh
+        - name: ssh-key
+          secret:
+            secretName: snapcd-runner-ssh-key
+            defaultMode: 0600
+        - name: preapproved-hooks
+          configMap:
+            name: snapcd-runner-hooks
+        - name: engines
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: runner-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

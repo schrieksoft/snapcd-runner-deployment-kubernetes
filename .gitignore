@@ -1,0 +1,5 @@
+# Overlay config files with actual secrets - never commit these
+manifests/production/config/appsettings.json
+manifests/production/config/id_rsa
+manifests/production/config/secret.env
+manifests/production/config/known_hosts

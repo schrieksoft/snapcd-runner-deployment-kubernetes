@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: snapcd
+
+resources:
+  - namespace.yaml
+  - statefulset.yaml
+
+configMapGenerator:
+  - name: snapcd-runner-config
+    files:
+      - config/appsettings.json
+  - name: snapcd-runner-ssh
+    files:
+      - config/known_hosts
+  - name: snapcd-runner-hooks
+    files:
+      - config/preapproved-hooks/sample.sh
+
+secretGenerator:
+  - name: snapcd-runner-ssh-key
+    files:
+      - config/id_rsa
+    type: Opaque
+  - name: snapcd-runner-credentials
+    envs:
+      - config/secret.env
+    type: Opaque
+
+generatorOptions:
+  disableNameSuffixHash: true
