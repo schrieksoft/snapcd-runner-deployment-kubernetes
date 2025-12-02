@@ -234,7 +234,7 @@ kubectl apply -k manifests/staging
 
 ## Docker Image
 
-This deployment uses the `ghcr.io/schrieksoft/snapcd-runner:azure-0.1.4` image, which includes:
+This deployment uses the `ghcr.io/schrieksoft/snapcd-runner:azure-0.1.5` image, which includes:
 
 - .NET 10 runtime
 - Git and SSH client
