@@ -51,7 +51,7 @@ spec:
               mountPath: /engines
       containers:
         - name: snapcd-runner
-          image: ghcr.io/schrieksoft/snapcd-runner:azure-0.1.4
+          image: ghcr.io/schrieksoft/snapcd-runner:azure-0.1.6
           command: ["./SnapCd.Runner", "--urls", "http://0.0.0.0:5001"]
           env:
             - name: POD_NAME
